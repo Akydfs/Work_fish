@@ -56,6 +56,15 @@
   ol{padding-left:20px;line-height:1.8}
   .hide{display:none !important}
   .banner{background:#fff3d6;border:1px solid #ecd39a;color:#8a5a00;padding:12px 14px;border-radius:12px;font-size:14px;line-height:1.6}
+  .search{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:15px;background:#fff;margin-top:6px}
+  .people{max-height:340px;overflow:auto;border:1px solid var(--line);border-radius:12px;background:#fff;margin-top:10px}
+  .person{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-bottom:1px solid #f0eadf;cursor:pointer}
+  .person:last-child{border-bottom:none}
+  .person input{margin-top:5px;width:18px;height:18px;flex:none}
+  .person .pname{font-size:14px;line-height:1.45;word-break:break-all}
+  .person .pwhere{display:block;color:var(--muted);font-size:12px;margin-top:3px}
+  details.card summary{cursor:pointer;font-weight:600;font-size:15px;color:var(--ink)}
+  select.search{appearance:none;background:#fff}
 </style>
 </head>
 <body>
@@ -76,6 +85,22 @@
 
     <label for="input">① 粘贴今天的群消息</label>
     <textarea id="input" placeholder="第11周&#10;星期一&#10;&#10;文汇楼开门人员：&#10;……"></textarea>
+
+    <details class="card" id="penCard">
+      <summary>罚扫 / 保持原班（可选）</summary>
+      <div class="row" style="margin-top:10px">
+        <select id="penBuilding" class="search" style="flex:1">
+          <option value="wenhui">文汇楼</option>
+          <option value="tiyuguan">体育馆</option>
+          <option value="zhiyuan">致远楼</option>
+        </select>
+        <input id="penDays" class="search" type="number" min="1" max="30" value="1" style="width:96px;flex:none">
+      </div>
+      <select id="penClass" class="search"></select>
+      <p class="muted" style="margin-top:8px">从明天算起；没课的日子不消耗天数。结束后从这一班的下一格继续。</p>
+      <button id="startPenalty" class="btn" style="margin-top:8px">开始罚扫</button>
+      <div id="penList"></div>
+    </details>
 
     <button id="genBtn" class="btn primary">生成明天 →</button>
     <div id="warnings"></div>
@@ -107,6 +132,18 @@
         </div>
         <input id="file2" class="file" type="file" accept=".json,application/json">
       </div>
+      <div class="card">
+        <h2>人员管理</h2>
+        <p class="muted">搜索姓名/班级/电话，勾选后可以<strong>批量从开门名单删除</strong>，或替换成别人。改完记得「导出数据」发给同学。</p>
+        <input id="peopleSearch" class="search" type="search" placeholder="搜索姓名 / 班级 / 电话">
+        <div id="peopleList" class="people"></div>
+        <div class="row">
+          <button id="delSelected" class="btn">删除选中</button>
+          <button id="replaceSelected" class="btn ghost">替换选中为…</button>
+        </div>
+        <p class="muted" id="peopleCount" style="margin-top:8px"></p>
+      </div>
+
       <div class="card">
         <h2>本机记录</h2>
         <p class="muted">程序会记住上次生成的“下一天”，所以「无」的日子之后还能接着轮。</p>
@@ -176,6 +213,9 @@
       const weeks = Object.keys(data.timetable.wenhui.hasClass).length
       $('#dataSummary').textContent =
         `数据版本：${data.version || '未知'} ｜ 班级联系人：${Object.keys(data.contacts).length} 个 ｜ 课表周数：${weeks} 周`
+      renderPeople()
+      renderPenClasses()
+      renderPenList()
     }
   }
 
@@ -193,6 +233,191 @@
     localStorage.setItem(DATA_KEY, JSON.stringify(d))
     render()
     toast('数据导入成功')
+  }
+
+  const BUILDING_LABEL = { wenhui: '文汇楼', tiyuguan: '体育馆', zhiyuan: '致远楼' }
+
+  function saveData(){ try { localStorage.setItem(DATA_KEY, JSON.stringify(data)) } catch(e){} }
+
+  function peopleIndex(){
+    const map = new Map()
+    const add = (display, where) => {
+      if (!display || display === '无') return
+      if (!map.has(display)) map.set(display, { display, where: [] })
+      map.get(display).where.push(where)
+    }
+    for (const b of Object.keys(data.openers || {})) {
+      for (const day of Object.keys(data.openers[b] || {})) {
+        for (const d of data.openers[b][day]) add(d, BUILDING_LABEL[b] + '周' + day + ' 开门')
+      }
+    }
+    for (const [cls, c] of Object.entries(data.contacts || {})) {
+      add(c.display, cls + ' 打扫联系人')
+    }
+    return [...map.values()].sort((a, b) => a.display.localeCompare(b.display, 'zh'))
+  }
+
+  function renderPeople(){
+    const box = $('#peopleList')
+    if (!box || !data) return
+    const q = ($('#peopleSearch').value || '').trim()
+    const all = peopleIndex()
+    const list = all.filter(p => !q || p.display.includes(q) || p.where.join(' ').includes(q))
+    box.innerHTML = ''
+    for (const p of list) {
+      const label = document.createElement('label')
+      label.className = 'person'
+      const cb = document.createElement('input')
+      cb.type = 'checkbox'
+      cb.value = p.display
+      const span = document.createElement('span')
+      span.className = 'pname'
+      span.textContent = p.display
+      const where = document.createElement('span')
+      where.className = 'pwhere'
+      where.textContent = p.where.join('；')
+      span.appendChild(where)
+      label.appendChild(cb)
+      label.appendChild(span)
+      box.appendChild(label)
+    }
+    $('#peopleCount').textContent = list.length
+      ? `共 ${list.length} 人（勾选后批量操作）`
+      : (all.length ? '没有匹配的人' : '数据里还没有人员')
+  }
+
+  function selectedDisplays(){
+    return [...document.querySelectorAll('#peopleList input[type="checkbox"]:checked')].map(c => c.value)
+  }
+
+  function isContact(display){
+    return Object.values(data.contacts || {}).some(c => c.display === display)
+  }
+
+  function deleteFromOpeners(d){
+    let n = 0
+    for (const b of Object.keys(data.openers || {})) {
+      for (const day of Object.keys(data.openers[b] || {})) {
+        const before = data.openers[b][day].length
+        data.openers[b][day] = data.openers[b][day].filter(x => x !== d)
+        n += before - data.openers[b][day].length
+      }
+    }
+    return n
+  }
+
+  function replaceInOpeners(oldD, newD){
+    let n = 0
+    for (const b of Object.keys(data.openers || {})) {
+      for (const day of Object.keys(data.openers[b] || {})) {
+        data.openers[b][day] = data.openers[b][day].map(x => {
+          if (x === oldD) { n++; return newD }
+          return x
+        })
+      }
+    }
+    return n
+  }
+
+  function renderPenClasses(){
+    const sel = $('#penClass')
+    if (!sel || !data) return
+    const cur = sel.value
+    sel.innerHTML = ''
+    for (const [cls, c] of Object.entries(data.contacts || {})) {
+      const o = document.createElement('option')
+      o.value = cls
+      o.textContent = `${cls}（${c.name}）`
+      sel.appendChild(o)
+    }
+    if (cur) sel.value = cur
+  }
+
+  function detectTodayClass(label){
+    try {
+      const sec = PaiBan.parseSection($('#input').value, label)
+      const d = PaiBan.detectClass(sec, data)
+      return d.known ? d.cls : null
+    } catch(e){ return null }
+  }
+
+  function renderPenList(){
+    const box = $('#penList')
+    if (!box) return
+    box.innerHTML = ''
+    for (const b of Object.keys(BUILDING_LABEL)) {
+      const p = memory[b] && memory[b].penalty
+      if (!p || p.remaining <= 0) continue
+      const row = document.createElement('div')
+      row.className = 'warn'
+      row.style.display = 'flex'; row.style.alignItems = 'center'; row.style.gap = '8px'
+      const span = document.createElement('span')
+      span.style.flex = '1'
+      span.textContent = `${BUILDING_LABEL[b]}：${p.cls}（还剩 ${p.remaining} 天）`
+      const btn = document.createElement('button')
+      btn.className = 'btn ghost'
+      btn.style.minHeight = '36px'; btn.style.padding = '6px 10px'
+      btn.textContent = '取消'
+      btn.onclick = () => {
+        delete memory[b].penalty
+        localStorage.setItem(MEM_KEY, JSON.stringify(memory))
+        renderPenList()
+      }
+      row.appendChild(span); row.appendChild(btn)
+      box.appendChild(row)
+    }
+  }
+
+  $('#penBuilding').onchange = () => {
+    const cls = detectTodayClass(BUILDING_LABEL[$('#penBuilding').value])
+    if (cls) $('#penClass').value = cls
+  }
+
+  $('#penCard').addEventListener('toggle', () => {
+    if ($('#penCard').open) {
+      const cls = detectTodayClass(BUILDING_LABEL[$('#penBuilding').value])
+      if (cls) $('#penClass').value = cls
+    }
+  })
+
+  $('#startPenalty').onclick = () => {
+    if (!data) { toast('请先导入数据'); return }
+    const b = $('#penBuilding').value
+    const days = Math.max(1, Math.min(30, parseInt($('#penDays').value, 10) || 1))
+    const cls = $('#penClass').value
+    if (!cls) { toast('先选一个班'); return }
+    let wk = null, dy = null
+    try { const p = PaiBan.parseInput($('#input').value); wk = p.week; dy = p.day } catch(e){}
+    memory[b] = { week: wk, day: dy, cls, penalty: { cls, remaining: days } }
+    localStorage.setItem(MEM_KEY, JSON.stringify(memory))
+    renderPenList()
+    toast(`已设置：${BUILDING_LABEL[b]} 从明天起罚扫 ${days} 天`)
+  }
+
+  $('#peopleSearch').addEventListener('input', renderPeople)
+
+  $('#delSelected').onclick = () => {
+    const sel = selectedDisplays()
+    if (!sel.length) { toast('先勾选要删除的人'); return }
+    const contacts = sel.filter(isContact)
+    if (!confirm(`从开门名单里删除这 ${sel.length} 人？` + (contacts.length ? `\n（其中 ${contacts.length} 人也是打扫联系人，联系人不会删）` : ''))) return
+    let n = 0
+    for (const d of sel) n += deleteFromOpeners(d)
+    saveData(); renderPeople(); render()
+    toast(`已删除 ${n} 条开门记录，记得导出数据`)
+  }
+
+  $('#replaceSelected').onclick = () => {
+    const sel = selectedDisplays()
+    if (!sel.length) { toast('先勾选要替换的人'); return }
+    const contacts = sel.filter(isContact)
+    if (contacts.length === sel.length) { toast('选中的都是打扫联系人，暂不支持批量替换'); return }
+    const newD = prompt('替换成谁？粘贴完整的一行（以 @ 开头）：')
+    if (!newD || !newD.trim()) return
+    let n = 0
+    for (const d of sel) n += replaceInOpeners(d, newD.trim())
+    saveData(); renderPeople(); render()
+    toast(`已替换 ${n} 条开门记录` + (contacts.length ? `；${contacts.length} 位联系人未改` : '') + '，记得导出数据')
   }
 
   $('#file').addEventListener('change', e => { const f = e.target.files[0]; if (f) readFile(f, importText); e.target.value = '' })
@@ -226,6 +451,7 @@
       $('#output').value = r.text
       memory = r.memory
       localStorage.setItem(MEM_KEY, JSON.stringify(memory))
+      renderPenList()
       const box = $('#warnings'); box.innerHTML = ''
       for (const w of r.warnings){
         const div = document.createElement('div'); div.className = 'warn'; div.textContent = '⚠ ' + w
@@ -253,6 +479,12 @@
       document.querySelectorAll('main section').forEach(s => s.classList.toggle('active', s.id === btn.dataset.tab))
     }
   })
+
+  const initialTab = location.hash.replace('#', '')
+  if (initialTab) {
+    const b = document.querySelector('nav.tabs button[data-tab="' + initialTab + '"]')
+    if (b) { b.click(); window.scrollTo(0, 0) }
+  }
 
   load()
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{})

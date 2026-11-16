@@ -113,7 +113,7 @@
       base = det.cls
     } else if (det.known && !det.cls) {
       const m = mem[key]
-      if (m && m.cls) {
+      if (m && m.cls && Number.isFinite(m.week) && Number.isFinite(m.day)) {
         base = advance(m.cls, Math.max(0, now - dayIndex(m.week, m.day)), rot)
         warn = `${label}：今天写的是「无」，按上次记录（${m.cls}）推算`
       } else {
@@ -121,7 +121,7 @@
       }
     } else {
       const m = mem[key]
-      if (m && m.cls) {
+      if (m && m.cls && Number.isFinite(m.week) && Number.isFinite(m.day)) {
         base = advance(m.cls, Math.max(0, now - dayIndex(m.week, m.day)), rot)
         warn = `${label}：没认出今天打扫的班，按上次记录（${m.cls}）推算`
       } else {
@@ -138,19 +138,21 @@
    * 生成下一天。
    * @param text 今天的群消息
    * @param data 导入的数据
-   * @param memory 上次的下一天记录 { [building]: {week, day, cls} }
+   * @param memory 上次的下一天记录 { [building]: {week, day, cls, penalty?} }
    */
   function generate(text, data, memory = {}) {
     const { week, day } = parseInput(text)
     const nd = nextDay(week, day)
     const ndName = DAY_NAMES[nd.day - 1]
     const warnings = []
-    const mem = { ...memory }
+    const mem = JSON.parse(JSON.stringify(memory || {}))
     const out = [`第${nd.week}周`, ndName, '']
 
     for (const b of BUILDINGS) {
       const tt = data.timetable[b.key]
       const has = !!(tt.hasClass[String(nd.week)]?.[ndName])
+      const old = mem[b.key] || {}
+      const pen = old.penalty && old.penalty.remaining > 0 ? old.penalty : null
       out.push(`${b.label}开门人员：`)
 
       if (!has) {
@@ -158,16 +160,37 @@
         out.push(`${b.label}打扫卫生班级：`)
         out.push('无')
         out.push('')
-        if (b.key !== 'zhiyuan') {
+        if (pen) {
+          // 没课：不消耗罚扫天数，轮换位置也不动
+          mem[b.key] = { week: nd.week, day: nd.day, cls: old.cls ?? null, penalty: pen }
+        } else if (b.key !== 'zhiyuan') {
           const st = computeNext(text, b.key, data, mem, week, day, nd)
           mem[b.key] = st.mem
           if (st.warn) warnings.push(st.warn)
+        } else {
+          mem[b.key] = { week: nd.week, day: nd.day, cls: null }
         }
         continue
       }
 
-      out.push(...(data.openers[b.key][String(nd.day)] || ['无']))
+      const ops = data.openers[b.key][String(nd.day)] || []
+      out.push(...(ops.length ? ops : ['无']))
       out.push(`${b.label}打扫卫生班级：`)
+
+      if (pen) {
+        const contact = data.contacts[pen.cls]
+        out.push(contact ? contact.display : '@' + pen.cls)
+        const remaining = pen.remaining - 1
+        warnings.push(`${b.label}：罚扫中（${pen.cls}），这次之后还剩 ${remaining} 天`)
+        mem[b.key] = {
+          week: nd.week,
+          day: nd.day,
+          cls: old.cls ?? (b.key === 'zhiyuan' ? null : pen.cls),
+          ...(remaining > 0 ? { penalty: { cls: pen.cls, remaining } } : {}),
+        }
+        out.push('')
+        continue
+      }
 
       if (b.key === 'zhiyuan') {
         const classes = tt.classes[String(nd.week)]?.[ndName] || []
