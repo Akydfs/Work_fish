@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>排表助手</title>
+<meta name="theme-color" content="#0f4c4c">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<style>
+  :root{
+    --bg:#f7f3ea; --card:#fffdf8; --ink:#22302f; --muted:#6b7a78;
+    --line:#e3dccd; --accent:#0f4c4c; --accent-2:#1d6b63; --warn:#b45309; --warnbg:#fff6e5;
+    --ok:#2f7d5a;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+  body{min-height:100vh;padding-bottom:env(safe-area-inset-bottom)}
+  header{display:flex;align-items:center;gap:10px;padding:14px 16px 6px;max-width:760px;margin:0 auto}
+  h1{font-size:19px;margin:0;letter-spacing:.5px}
+  .pill{margin-left:auto;font-size:12px;padding:4px 10px;border-radius:999px;background:#eee7d8;color:var(--muted)}
+  .pill.ok{background:#e2f0e8;color:var(--ok)}
+  nav.tabs{display:flex;gap:6px;padding:0 16px 8px;max-width:760px;margin:0 auto}
+  nav.tabs button{flex:1;border:1px solid var(--line);background:transparent;color:var(--muted);
+    padding:9px 0;border-radius:10px;font-size:14px}
+  nav.tabs button.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  main{max-width:760px;margin:0 auto;padding:6px 16px 40px}
+  section{display:none}
+  section.active{display:block}
+  label{display:block;font-size:13px;color:var(--muted);margin:14px 0 6px}
+  textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:12px;padding:12px;
+    background:var(--card);color:var(--ink);font-size:15px;line-height:1.55;
+    font-family:ui-monospace,SFMono-Regular,Menlo,"Microsoft YaHei",monospace;resize:vertical}
+  textarea:focus{outline:2px solid #bcded8;border-color:#bcded8}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    border:none;border-radius:12px;padding:13px 18px;font-size:15px;font-weight:600;
+    background:#e9e2d3;color:var(--ink);cursor:pointer;min-height:48px}
+  .btn.primary{background:var(--accent);color:#fff;width:100%;margin-top:12px}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--muted)}
+  .row{display:flex;gap:10px;margin-top:10px}
+  .row .btn{flex:1}
+  .warn{background:var(--warnbg);border:1px solid #f0d9a8;color:var(--warn);
+    border-radius:10px;padding:10px 12px;font-size:13px;margin-top:10px;line-height:1.5}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:14px}
+  .card h2{font-size:15px;margin:0 0 8px}
+  .muted{color:var(--muted);font-size:13px;line-height:1.6}
+  .big-upload{display:block;border:2px dashed #cfc6b3;border-radius:14px;padding:28px 16px;text-align:center;
+    color:var(--accent);font-weight:600;cursor:pointer;background:#fdfaf3}
+  .file{display:none}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#22302f;color:#fff;
+    padding:10px 16px;border-radius:999px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s}
+  .toast.show{opacity:.95}
+  .kbd{display:inline-block;border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;
+    padding:0 6px;font-size:12px;background:#fbf7ee}
+  ol{padding-left:20px;line-height:1.8}
+  .hide{display:none !important}
+  .banner{background:#fff3d6;border:1px solid #ecd39a;color:#8a5a00;padding:12px 14px;border-radius:12px;font-size:14px;line-height:1.6}
+</style>
+</head>
+<body>
+<header>
+  <h1>排表助手</h1>
+  <span id="status" class="pill">未导入数据</span>
+</header>
+
+<nav class="tabs">
+  <button data-tab="gen" class="active">生成</button>
+  <button data-tab="data">数据</button>
+  <button data-tab="help">说明</button>
+</nav>
+
+<main>
+  <section id="gen" class="active">
+    <div id="noData" class="banner">还没有导入数据。先去 <b>数据</b> 页导入 <code>data.json</code>，再回来生成。</div>
+
+    <label for="input">① 粘贴今天的群消息</label>
+    <textarea id="input" placeholder="第11周&#10;星期一&#10;&#10;文汇楼开门人员：&#10;……"></textarea>
+
+    <button id="genBtn" class="btn primary">生成明天 →</button>
+    <div id="warnings"></div>
+
+    <label for="output">② 明天的消息（可以直接改）</label>
+    <textarea id="output" placeholder="生成结果会出现在这里"></textarea>
+    <div class="row">
+      <button id="copyBtn" class="btn">复制结果</button>
+      <button id="clearBtn" class="btn ghost">清空</button>
+    </div>
+  </section>
+
+  <section id="data">
+    <div id="dataEmpty">
+      <label>导入数据文件（管理员发给你的 data.json）</label>
+      <label class="big-upload" for="file">点这里选择 data.json
+        <input id="file" class="file" type="file" accept=".json,application/json">
+      </label>
+      <p class="muted">数据只保存在这台设备上，不会上传。换手机或换学期时，重新导入一次即可。</p>
+    </div>
+
+    <div id="dataLoaded" class="hide">
+      <div class="card">
+        <h2>当前数据</h2>
+        <p class="muted" id="dataSummary"></p>
+        <div class="row">
+          <button id="replaceBtn" class="btn">更换数据文件</button>
+          <button id="exportBtn" class="btn ghost">导出数据</button>
+        </div>
+        <input id="file2" class="file" type="file" accept=".json,application/json">
+      </div>
+      <div class="card">
+        <h2>本机记录</h2>
+        <p class="muted">程序会记住上次生成的“下一天”，所以「无」的日子之后还能接着轮。</p>
+        <button id="resetMemBtn" class="btn ghost">清除本机记录</button>
+      </div>
+      <div class="card">
+        <h2>删除数据</h2>
+        <p class="muted">只删除这台设备上的数据，不影响别人。</p>
+        <button id="clearDataBtn" class="btn ghost">删除本机数据</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="help">
+    <div class="card">
+      <h2>每天怎么用</h2>
+      <ol>
+        <li>把群里今天那条消息整段复制，粘到「生成」页。</li>
+        <li>点「生成明天」，检查开门人员和打扫班级。</li>
+        <li>点「复制结果」，粘到群里发送。</li>
+      </ol>
+      <p class="muted">如果某天有罚扫或临时调整，直接在结果框里改，再复制即可。</p>
+    </div>
+    <div class="card">
+      <h2>装到手机桌面</h2>
+      <p class="muted"><b>安卓：</b>用 Chrome 打开本页 → 右上角菜单 → 「安装应用」或「添加到主屏幕」。</p>
+      <p class="muted"><b>苹果：</b>用 Safari 打开本页 → 底部「分享」→ 「添加到主屏幕」。</p>
+      <p class="muted">第一次打开需要联网；装好之后断网也能用。</p>
+    </div>
+    <div class="card">
+      <h2>隐私</h2>
+      <p class="muted">网页本身不含姓名和电话。数据文件由管理员单独发给你，导入后只存在你自己的手机里。</p>
+    </div>
+  </section>
+</main>
+
+<div id="toast" class="toast"></div>
+
+<script src="./engine.js"></script>
+<script>
+(function(){
+  const $ = (s) => document.querySelector(s)
+  const DATA_KEY = 'paiban.data.v1'
+  const MEM_KEY  = 'paiban.memory.v1'
+  let data = null
+  let memory = {}
+
+  function toast(msg){
+    const t = $('#toast'); t.textContent = msg; t.classList.add('show')
+    clearTimeout(toast._t); toast._t = setTimeout(()=>t.classList.remove('show'), 2200)
+  }
+
+  function load(){
+    try { const t = localStorage.getItem(DATA_KEY); if (t) data = JSON.parse(t) } catch(e){}
+    try { memory = JSON.parse(localStorage.getItem(MEM_KEY) || '{}') } catch(e){ memory = {} }
+    render()
+  }
+
+  function render(){
+    const ok = !!(data && data.contacts && data.timetable && data.openers && data.rotation)
+    $('#status').textContent = ok ? '数据已就绪' : '未导入数据'
+    $('#status').classList.toggle('ok', ok)
+    $('#noData').classList.toggle('hide', ok)
+    $('#dataEmpty').classList.toggle('hide', ok)
+    $('#dataLoaded').classList.toggle('hide', !ok)
+    if (ok){
+      const weeks = Object.keys(data.timetable.wenhui.hasClass).length
+      $('#dataSummary').textContent =
+        `数据版本：${data.version || '未知'} ｜ 班级联系人：${Object.keys(data.contacts).length} 个 ｜ 课表周数：${weeks} 周`
+    }
+  }
+
+  function readFile(file, cb){
+    const reader = new FileReader()
+    reader.onload = () => cb(String(reader.result))
+    reader.readAsText(file, 'utf-8')
+  }
+
+  function importText(text){
+    let d
+    try { d = JSON.parse(text) } catch(e){ toast('不是有效的 JSON 文件'); return }
+    if (!d || !d.contacts || !d.timetable || !d.openers || !d.rotation){ toast('这不是排表数据文件'); return }
+    data = d
+    localStorage.setItem(DATA_KEY, JSON.stringify(d))
+    render()
+    toast('数据导入成功')
+  }
+
+  $('#file').addEventListener('change', e => { const f = e.target.files[0]; if (f) readFile(f, importText); e.target.value = '' })
+  $('#file2').addEventListener('change', e => { const f = e.target.files[0]; if (f) readFile(f, importText); e.target.value = '' })
+
+  $('#replaceBtn').onclick = () => $('#file2').click()
+
+  $('#exportBtn').onclick = () => {
+    if (!data) return
+    const blob = new Blob([JSON.stringify(data, null, 1)], {type: 'application/json'})
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = 'data.json'
+    a.click()
+    setTimeout(()=>URL.revokeObjectURL(a.href), 1000)
+  }
+
+  $('#resetMemBtn').onclick = () => {
+    memory = {}; localStorage.removeItem(MEM_KEY); toast('本机记录已清除')
+  }
+
+  $('#clearDataBtn').onclick = () => {
+    if (!confirm('确定删除这台设备上的数据吗？')) return
+    localStorage.removeItem(DATA_KEY); data = null; render(); toast('已删除')
+  }
+
+  $('#genBtn').onclick = () => {
+    if (!data){ toast('请先到「数据」页导入 data.json'); return }
+    try {
+      const r = window.PaiBan.generate($('#input').value, data, memory)
+      $('#output').value = r.text
+      memory = r.memory
+      localStorage.setItem(MEM_KEY, JSON.stringify(memory))
+      const box = $('#warnings'); box.innerHTML = ''
+      for (const w of r.warnings){
+        const div = document.createElement('div'); div.className = 'warn'; div.textContent = '⚠ ' + w
+        box.appendChild(div)
+      }
+      toast('已生成第' + r.nextWeek + '周 ' + window.PaiBan.DAY_NAMES[r.nextDay-1])
+    } catch(err){ toast(err.message) }
+  }
+
+  $('#copyBtn').onclick = async () => {
+    const text = $('#output').value
+    if (!text) { toast('还没有内容'); return }
+    try { await navigator.clipboard.writeText(text); toast('已复制') }
+    catch(e){
+      const ta = $('#output'); ta.focus(); ta.select()
+      try { document.execCommand('copy'); toast('已复制') } catch(e2){ toast('复制失败，请手动全选复制') }
+    }
+  }
+
+  $('#clearBtn').onclick = () => { $('#input').value = ''; $('#output').value = ''; $('#warnings').innerHTML = '' }
+
+  document.querySelectorAll('nav.tabs button').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('active', b === btn))
+      document.querySelectorAll('main section').forEach(s => s.classList.toggle('active', s.id === btn.dataset.tab))
+    }
+  })
+
+  load()
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{})
+})()
+</script>
+</body>
+</html>
