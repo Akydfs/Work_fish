@@ -84,7 +84,7 @@
     if (!lines) return { known: false, cls: null, reason: 'section-missing' }
     if (lines.some((l) => norm(l) === '无')) return { known: true, cls: null, reason: 'none' }
     for (const [cls, c] of Object.entries(data.contacts)) {
-      if (lines.some((l) => l.includes(c.name))) return { known: true, cls, reason: 'name' }
+      if (c.name && lines.some((l) => l.includes(c.name))) return { known: true, cls, reason: 'name' }
     }
     for (const l of lines) {
       const cls = classFromText(l)
@@ -101,44 +101,58 @@
     return rotation[(((i + steps) % n) + n) % n]
   }
 
-  function computeNext(text, key, data, mem, week, day, nd) {
+  /** 从 from 的下一格数到 to（含 to），只数“有课”的天。 */
+  function classDayCount(data, key, fromWeek, fromDay, toWeek, toDay) {
+    let count = 0
+    const from = dayIndex(fromWeek, fromDay)
+    const to = dayIndex(toWeek, toDay)
+    for (let i = from + 1; i <= to; i++) {
+      const w = Math.floor(i / 5) + 1
+      const d = (i % 5) + 1
+      if (data.timetable[key]?.hasClass?.[String(w)]?.[DAY_NAMES[d - 1]]) count++
+    }
+    return count
+  }
+
+  function computeNext(text, key, data, mem, week, day, nd, todayHas) {
     const label = BUILDINGS.find((b) => b.key === key).label
     const rot = data.rotation[key]
     const det = detectClass(parseSection(text, label), data)
-    const now = dayIndex(week, day)
-    let base = null
+    const m = mem[key]
+    let todayCls = null
     let warn = null
 
     if (det.known && det.cls) {
-      base = det.cls
-    } else if (det.known && !det.cls) {
-      const m = mem[key]
+      todayCls = det.cls
+    } else if (todayHas) {
       if (m && m.cls && Number.isFinite(m.week) && Number.isFinite(m.day)) {
-        base = advance(m.cls, Math.max(0, now - dayIndex(m.week, m.day)), rot)
+        const steps = classDayCount(data, key, m.week, m.day, week, day)
+        todayCls = steps > 0 ? advance(m.cls, steps, rot) : m.cls
         warn = `${label}：今天写的是「无」，按上次记录（${m.cls}）推算`
       } else {
         warn = `${label}：今天写的是「无」，又没有历史记录，无法推算，请手动填`
       }
-    } else {
-      const m = mem[key]
-      if (m && m.cls && Number.isFinite(m.week) && Number.isFinite(m.day)) {
-        base = advance(m.cls, Math.max(0, now - dayIndex(m.week, m.day)), rot)
-        warn = `${label}：没认出今天打扫的班，按上次记录（${m.cls}）推算`
-      } else {
-        warn = `${label}：没认出今天打扫的班，请手动填`
-      }
+    } else if (!m || !m.cls) {
+      warn = `${label}：没有历史记录，无法推算`
     }
 
-    if (base && rot.indexOf(base) < 0) warn = `${label}：${base} 不在轮换表里（罚扫？），保持原样`
+    // 记忆只记“真正扫过的那一天”，不记“计划中的下一天”。
+    // 没课的日子不前进，所以周五没课不会再吃掉一格。
+    let nextMem = m || null
+    if (todayHas && todayCls) nextMem = { week, day, cls: todayCls }
+    else if (!m) nextMem = null
+
+    if (todayCls && rot.indexOf(todayCls) < 0) warn = `${label}：${todayCls} 不在轮换表里（罚扫？），保持原样`
+    const base = todayHas ? todayCls : (m && m.cls ? m.cls : null)
     const next = base ? advance(base, 1, rot) : null
-    return { base, next, warn, mem: { week: nd.week, day: nd.day, cls: next || base || null } }
+    return { base, next, warn, mem: nextMem }
   }
 
   /**
    * 生成下一天。
    * @param text 今天的群消息
    * @param data 导入的数据
-   * @param memory 上次的下一天记录 { [building]: {week, day, cls, penalty?} }
+   * @param memory 上次的记录 { [building]: {week, day, cls, penalty?} }
    */
   function generate(text, data, memory = {}) {
     const { week, day } = parseInput(text)
@@ -151,6 +165,7 @@
     for (const b of BUILDINGS) {
       const tt = data.timetable[b.key]
       const has = !!(tt.hasClass[String(nd.week)]?.[ndName])
+      const todayHas = !!(tt.hasClass[String(week)]?.[DAY_NAMES[day - 1]])
       const old = mem[b.key] || {}
       const pen = old.penalty && old.penalty.remaining > 0 ? old.penalty : null
       out.push(`${b.label}开门人员：`)
@@ -164,7 +179,7 @@
           // 没课：不消耗罚扫天数，轮换位置也不动
           mem[b.key] = { week: nd.week, day: nd.day, cls: old.cls ?? null, penalty: pen }
         } else if (b.key !== 'zhiyuan') {
-          const st = computeNext(text, b.key, data, mem, week, day, nd)
+          const st = computeNext(text, b.key, data, mem, week, day, nd, todayHas)
           mem[b.key] = st.mem
           if (st.warn) warnings.push(st.warn)
         } else {
@@ -206,7 +221,7 @@
           }
         }
       } else {
-        const st = computeNext(text, b.key, data, mem, week, day, nd)
+        const st = computeNext(text, b.key, data, mem, week, day, nd, todayHas)
         mem[b.key] = st.mem
         if (st.warn) warnings.push(st.warn)
         if (!st.next) {

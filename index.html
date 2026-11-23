@@ -63,6 +63,10 @@
   .person input{margin-top:5px;width:18px;height:18px;flex:none}
   .person .pname{font-size:14px;line-height:1.45;word-break:break-all}
   .person .pwhere{display:block;color:var(--muted);font-size:12px;margin-top:3px}
+  .person .pchips{display:block;color:var(--accent-2);font-size:12px;margin-top:3px}
+  .mini{border:1px solid var(--line);background:#fbf7ee;color:var(--accent);border-radius:8px;padding:6px 10px;font-size:12px;min-height:32px;flex:none;cursor:pointer}
+  .addbox{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+  .addbox h3{font-size:14px;margin:0 0 8px}
   details.card summary{cursor:pointer;font-weight:600;font-size:15px;color:var(--ink)}
   select.search{appearance:none;background:#fff}
 </style>
@@ -142,6 +146,35 @@
           <button id="replaceSelected" class="btn ghost">替换选中为…</button>
         </div>
         <p class="muted" id="peopleCount" style="margin-top:8px"></p>
+
+        <div class="addbox">
+          <h3>添加人员</h3>
+          <select id="addKind" class="search">
+            <option value="opener">开门人员</option>
+            <option value="contact">打扫联系人</option>
+          </select>
+          <div class="row" id="addOpenerFields" style="margin-top:8px">
+            <select id="addBuilding" class="search" style="flex:1">
+              <option value="wenhui">文汇楼</option>
+              <option value="tiyuguan">体育馆</option>
+              <option value="zhiyuan">致远楼</option>
+            </select>
+            <select id="addDay" class="search" style="width:110px;flex:none">
+              <option value="1">周一</option>
+              <option value="2">周二</option>
+              <option value="3">周三</option>
+              <option value="4">周四</option>
+              <option value="5">周五</option>
+            </select>
+          </div>
+          <div id="addContactFields" class="hide">
+            <select id="addClass" class="search"></select>
+            <input id="addName" class="search" placeholder="姓名（联系人必填，用于识别）">
+          </div>
+          <input id="addDisplay" class="search" placeholder="完整的一行，以 @ 开头（例：@G26…张三138…）">
+          <button id="addPerson" class="btn" style="margin-top:8px">添加</button>
+          <p class="muted" style="margin-top:8px">开门人员加到所选那天；打扫联系人会覆盖该班原来的联系人。</p>
+        </div>
       </div>
 
       <div class="card">
@@ -159,23 +192,50 @@
 
   <section id="help">
     <div class="card">
-      <h2>每天怎么用</h2>
+      <h2>这是什么</h2>
+      <p class="muted">把群里“今天”的排表消息，变成“明天”的那条。文汇楼 / 体育馆按队列轮换，致远楼按当天课表；周五 → 下一周周一。</p>
+    </div>
+    <div class="card">
+      <h2>每天 3 步</h2>
       <ol>
         <li>把群里今天那条消息整段复制，粘到「生成」页。</li>
         <li>点「生成明天」，检查开门人员和打扫班级。</li>
         <li>点「复制结果」，粘到群里发送。</li>
       </ol>
-      <p class="muted">如果某天有罚扫或临时调整，直接在结果框里改，再复制即可。</p>
+      <p class="muted">有罚扫或临时调整，直接在结果框里改，再复制。</p>
+    </div>
+    <div class="card">
+      <h2>三个页面</h2>
+      <p class="muted"><b>生成：</b>粘贴 → 生成 → 复制；罚扫也在这里。</p>
+      <p class="muted"><b>数据：</b>导入 / 导出数据；人员管理；本机记录。</p>
+      <p class="muted"><b>说明：</b>就是这一页。</p>
+    </div>
+    <div class="card">
+      <h2>人员管理</h2>
+      <p class="muted">搜索姓名 / 班级 / 电话 → 勾选 →「删除选中」或「替换选中为…」。</p>
+      <p class="muted">每个人后面有「编辑」：开门人员改那一行；打扫联系人改姓名 + 那一行。</p>
+      <p class="muted">分类：<b>开门</b>（某楼某天）和 <b>打扫联系人</b>（某班找谁）。删除联系人会把该班标成「无」，不会打乱轮换。</p>
+      <p class="muted">改完记得「导出数据」，把新的 data.json 发给同学。</p>
+    </div>
+    <div class="card">
+      <h2>罚扫 / 保持原班</h2>
+      <p class="muted">选楼 + 天数 + 班级。从明天算起；没课的日子不消耗天数；结束后从这一班的下一格继续。</p>
+    </div>
+    <div class="card">
+      <h2>数据与隐私</h2>
+      <p class="muted">网页本身不含姓名和电话。data.json 里才有，只发给你信任的人。</p>
     </div>
     <div class="card">
       <h2>装到手机桌面</h2>
-      <p class="muted"><b>安卓：</b>用 Chrome 打开本页 → 右上角菜单 → 「安装应用」或「添加到主屏幕」。</p>
-      <p class="muted"><b>苹果：</b>用 Safari 打开本页 → 底部「分享」→ 「添加到主屏幕」。</p>
+      <p class="muted"><b>安卓：</b>Chrome 打开本页 → 右上角菜单 →「安装应用」或「添加到主屏幕」。</p>
+      <p class="muted"><b>苹果：</b>Safari 打开本页 → 底部「分享」→「添加到主屏幕」。</p>
       <p class="muted">第一次打开需要联网；装好之后断网也能用。</p>
     </div>
     <div class="card">
-      <h2>隐私</h2>
-      <p class="muted">网页本身不含姓名和电话。数据文件由管理员单独发给你，导入后只存在你自己的手机里。</p>
+      <h2>常见问题</h2>
+      <p class="muted"><b>为什么显示「无」？</b>那天这栋楼没课，或者该班联系人被删了。</p>
+      <p class="muted"><b>换了学期怎么办？</b>需要新的 data.json（用 Excel 小工具生成）。</p>
+      <p class="muted"><b>界面没更新？</b>关掉标签页重开，或刷新两次。</p>
     </div>
   </section>
 </main>
@@ -187,7 +247,8 @@
 (function(){
   const $ = (s) => document.querySelector(s)
   const DATA_KEY = 'paiban.data.v1'
-  const MEM_KEY  = 'paiban.memory.v1'
+  const MEM_KEY  = 'paiban.memory.v2'
+  const BUILDING_LABEL = { wenhui: '文汇楼', tiyuguan: '体育馆', zhiyuan: '致远楼' }
   let data = null
   let memory = {}
 
@@ -216,7 +277,12 @@
       renderPeople()
       renderPenClasses()
       renderPenList()
+      renderAddClasses()
     }
+  }
+
+  function saveData(){
+    try { localStorage.setItem(DATA_KEY, JSON.stringify(data)) } catch(e){}
   }
 
   function readFile(file, cb){
@@ -235,24 +301,28 @@
     toast('数据导入成功')
   }
 
-  const BUILDING_LABEL = { wenhui: '文汇楼', tiyuguan: '体育馆', zhiyuan: '致远楼' }
-
-  function saveData(){ try { localStorage.setItem(DATA_KEY, JSON.stringify(data)) } catch(e){} }
-
+  // ───────── 人员 ─────────
   function peopleIndex(){
     const map = new Map()
-    const add = (display, where) => {
-      if (!display || display === '无') return
-      if (!map.has(display)) map.set(display, { display, where: [] })
-      map.get(display).where.push(where)
+    const get = (d) => {
+      if (!map.has(d)) map.set(d, { display: d, where: [], openerCount: 0, contactClasses: [] })
+      return map.get(d)
     }
     for (const b of Object.keys(data.openers || {})) {
       for (const day of Object.keys(data.openers[b] || {})) {
-        for (const d of data.openers[b][day]) add(d, BUILDING_LABEL[b] + '周' + day + ' 开门')
+        for (const d of data.openers[b][day]) {
+          if (!d || d === '无') continue
+          const p = get(d)
+          p.where.push(BUILDING_LABEL[b] + '周' + day + ' 开门')
+          p.openerCount++
+        }
       }
     }
     for (const [cls, c] of Object.entries(data.contacts || {})) {
-      add(c.display, cls + ' 打扫联系人')
+      if (!c || !c.display || c.display === '无') continue
+      const p = get(c.display)
+      p.where.push(cls + ' 打扫联系人')
+      p.contactClasses.push(cls)
     }
     return [...map.values()].sort((a, b) => a.display.localeCompare(b.display, 'zh'))
   }
@@ -265,8 +335,8 @@
     const list = all.filter(p => !q || p.display.includes(q) || p.where.join(' ').includes(q))
     box.innerHTML = ''
     for (const p of list) {
-      const label = document.createElement('label')
-      label.className = 'person'
+      const row = document.createElement('label')
+      row.className = 'person'
       const cb = document.createElement('input')
       cb.type = 'checkbox'
       cb.value = p.display
@@ -276,10 +346,23 @@
       const where = document.createElement('span')
       where.className = 'pwhere'
       where.textContent = p.where.join('；')
+      const chips = document.createElement('span')
+      chips.className = 'pchips'
+      const parts = []
+      if (p.openerCount) parts.push('开门 ' + p.openerCount + ' 处')
+      if (p.contactClasses.length) parts.push('打扫联系人：' + p.contactClasses.join('、'))
+      chips.textContent = parts.join(' ｜ ')
       span.appendChild(where)
-      label.appendChild(cb)
-      label.appendChild(span)
-      box.appendChild(label)
+      span.appendChild(chips)
+      const edit = document.createElement('button')
+      edit.type = 'button'
+      edit.className = 'mini'
+      edit.textContent = '编辑'
+      edit.onclick = (e) => { e.preventDefault(); e.stopPropagation(); editPerson(p.display) }
+      row.appendChild(cb)
+      row.appendChild(span)
+      row.appendChild(edit)
+      box.appendChild(row)
     }
     $('#peopleCount').textContent = list.length
       ? `共 ${list.length} 人（勾选后批量操作）`
@@ -290,8 +373,22 @@
     return [...document.querySelectorAll('#peopleList input[type="checkbox"]:checked')].map(c => c.value)
   }
 
+  function contactClassesOf(display){
+    return Object.entries(data.contacts || {}).filter(([cls, c]) => c.display === display).map(([cls]) => cls)
+  }
+
   function isContact(display){
-    return Object.values(data.contacts || {}).some(c => c.display === display)
+    return contactClassesOf(display).length > 0
+  }
+
+  function countOpeners(display){
+    let n = 0
+    for (const b of Object.keys(data.openers || {})) {
+      for (const day of Object.keys(data.openers[b] || {})) {
+        n += data.openers[b][day].filter(x => x === display).length
+      }
+    }
+    return n
   }
 
   function deleteFromOpeners(d){
@@ -319,6 +416,89 @@
     return n
   }
 
+  function clearContact(display){
+    let n = 0
+    for (const [cls, c] of Object.entries(data.contacts || {})) {
+      if (c.display === display) {
+        data.contacts[cls] = { name: '', display: '无' }
+        n++
+      }
+    }
+    return n
+  }
+
+  function editPerson(oldDisplay){
+    if (!data) return
+    const clsList = contactClassesOf(oldDisplay)
+    let newDisplay = oldDisplay
+    if (clsList.length) {
+      const curName = data.contacts[clsList[0]].name || ''
+      const name = prompt(`改「${clsList.join('、')}」的打扫联系人姓名：`, curName)
+      if (name === null) return
+      const nd = prompt('改成哪一行？（以 @ 开头）', oldDisplay)
+      if (nd === null) return
+      newDisplay = nd.trim()
+      if (!newDisplay) return
+      for (const cls of clsList) data.contacts[cls] = { name: name.trim(), display: newDisplay }
+      replaceInOpeners(oldDisplay, newDisplay)
+    } else {
+      const nd = prompt('改成哪一行？（以 @ 开头）', oldDisplay)
+      if (nd === null) return
+      newDisplay = nd.trim()
+      if (!newDisplay) return
+      replaceInOpeners(oldDisplay, newDisplay)
+    }
+    saveData(); renderPeople(); render()
+    toast('已修改，记得导出数据')
+  }
+
+  function renderAddClasses(){
+    const sel = $('#addClass')
+    if (!sel || !data) return
+    const cur = sel.value
+    sel.innerHTML = ''
+    for (const [cls, c] of Object.entries(data.contacts || {})) {
+      const o = document.createElement('option')
+      o.value = cls
+      o.textContent = `${cls}（${c.name || '无'}）`
+      sel.appendChild(o)
+    }
+    if (cur) sel.value = cur
+  }
+
+  $('#addKind').onchange = () => {
+    const contact = $('#addKind').value === 'contact'
+    $('#addOpenerFields').classList.toggle('hide', contact)
+    $('#addContactFields').classList.toggle('hide', !contact)
+  }
+
+  $('#addPerson').onclick = () => {
+    if (!data) { toast('请先导入数据'); return }
+    const display = $('#addDisplay').value.trim()
+    if (!display) { toast('请填完整的一行'); return }
+    if (!display.startsWith('@')) { toast('请以 @ 开头'); return }
+    const kind = $('#addKind').value
+    if (kind === 'opener') {
+      const b = $('#addBuilding').value
+      const day = $('#addDay').value
+      if (!data.openers[b][day]) data.openers[b][day] = []
+      if (!data.openers[b][day].includes(display)) data.openers[b][day].push(display)
+      saveData(); renderPeople(); render()
+      toast(`已加到 ${BUILDING_LABEL[b]} 周${day}`)
+    } else {
+      const cls = $('#addClass').value
+      const name = $('#addName').value.trim()
+      if (!cls) { toast('先选班级'); return }
+      if (!name) { toast('联系人要填姓名（用于识别）'); return }
+      data.contacts[cls] = { name, display }
+      saveData(); renderPeople(); render()
+      toast(`已更新 ${cls} 的联系人`)
+    }
+    $('#addDisplay').value = ''
+    $('#addName').value = ''
+  }
+
+  // ───────── 罚扫 ─────────
   function renderPenClasses(){
     const sel = $('#penClass')
     if (!sel || !data) return
@@ -327,7 +507,7 @@
     for (const [cls, c] of Object.entries(data.contacts || {})) {
       const o = document.createElement('option')
       o.value = cls
-      o.textContent = `${cls}（${c.name}）`
+      o.textContent = `${cls}（${c.name || '无'}）`
       sel.appendChild(o)
     }
     if (cur) sel.value = cur
@@ -394,35 +574,9 @@
     toast(`已设置：${BUILDING_LABEL[b]} 从明天起罚扫 ${days} 天`)
   }
 
-  $('#peopleSearch').addEventListener('input', renderPeople)
-
-  $('#delSelected').onclick = () => {
-    const sel = selectedDisplays()
-    if (!sel.length) { toast('先勾选要删除的人'); return }
-    const contacts = sel.filter(isContact)
-    if (!confirm(`从开门名单里删除这 ${sel.length} 人？` + (contacts.length ? `\n（其中 ${contacts.length} 人也是打扫联系人，联系人不会删）` : ''))) return
-    let n = 0
-    for (const d of sel) n += deleteFromOpeners(d)
-    saveData(); renderPeople(); render()
-    toast(`已删除 ${n} 条开门记录，记得导出数据`)
-  }
-
-  $('#replaceSelected').onclick = () => {
-    const sel = selectedDisplays()
-    if (!sel.length) { toast('先勾选要替换的人'); return }
-    const contacts = sel.filter(isContact)
-    if (contacts.length === sel.length) { toast('选中的都是打扫联系人，暂不支持批量替换'); return }
-    const newD = prompt('替换成谁？粘贴完整的一行（以 @ 开头）：')
-    if (!newD || !newD.trim()) return
-    let n = 0
-    for (const d of sel) n += replaceInOpeners(d, newD.trim())
-    saveData(); renderPeople(); render()
-    toast(`已替换 ${n} 条开门记录` + (contacts.length ? `；${contacts.length} 位联系人未改` : '') + '，记得导出数据')
-  }
-
+  // ───────── 事件 ─────────
   $('#file').addEventListener('change', e => { const f = e.target.files[0]; if (f) readFile(f, importText); e.target.value = '' })
   $('#file2').addEventListener('change', e => { const f = e.target.files[0]; if (f) readFile(f, importText); e.target.value = '' })
-
   $('#replaceBtn').onclick = () => $('#file2').click()
 
   $('#exportBtn').onclick = () => {
@@ -435,19 +589,54 @@
     setTimeout(()=>URL.revokeObjectURL(a.href), 1000)
   }
 
-  $('#resetMemBtn').onclick = () => {
-    memory = {}; localStorage.removeItem(MEM_KEY); toast('本机记录已清除')
-  }
+  $('#resetMemBtn').onclick = () => { memory = {}; localStorage.removeItem(MEM_KEY); toast('本机记录已清除') }
 
   $('#clearDataBtn').onclick = () => {
     if (!confirm('确定删除这台设备上的数据吗？')) return
     localStorage.removeItem(DATA_KEY); data = null; render(); toast('已删除')
   }
 
+  $('#peopleSearch').addEventListener('input', renderPeople)
+
+  $('#delSelected').onclick = () => {
+    const sel = selectedDisplays()
+    if (!sel.length) { toast('先勾选要删除的人'); return }
+    const contactClasses = []
+    let openerHits = 0
+    for (const d of sel) {
+      openerHits += countOpeners(d)
+      contactClasses.push(...contactClassesOf(d))
+    }
+    const lines = [`选中的 ${sel.length} 人：`]
+    if (openerHits) lines.push(`· 开门记录 ${openerHits} 条（会删除）`)
+    if (contactClasses.length) lines.push(`· 打扫联系人：${contactClasses.join('、')}（会标成「无」）`)
+    lines.push('', '确定吗？')
+    if (!confirm(lines.join('\n'))) return
+    let n = 0
+    for (const d of sel) n += deleteFromOpeners(d)
+    let m = 0
+    for (const d of sel) m += clearContact(d)
+    saveData(); renderPeople(); render()
+    toast(`已删除 ${n} 条开门记录；${m} 个班级标成「无」`)
+  }
+
+  $('#replaceSelected').onclick = () => {
+    const sel = selectedDisplays()
+    if (!sel.length) { toast('先勾选要替换的人'); return }
+    const contacts = sel.filter(isContact)
+    if (contacts.length === sel.length) { toast('选中的都是打扫联系人，请用每行的「编辑」'); return }
+    const newD = prompt('替换成谁？粘贴完整的一行（以 @ 开头）：')
+    if (!newD || !newD.trim()) return
+    let n = 0
+    for (const d of sel) n += replaceInOpeners(d, newD.trim())
+    saveData(); renderPeople(); render()
+    toast(`已替换 ${n} 条开门记录` + (contacts.length ? `；${contacts.length} 位联系人未改` : '') + '，记得导出数据')
+  }
+
   $('#genBtn').onclick = () => {
     if (!data){ toast('请先到「数据」页导入 data.json'); return }
     try {
-      const r = window.PaiBan.generate($('#input').value, data, memory)
+      const r = PaiBan.generate($('#input').value, data, memory)
       $('#output').value = r.text
       memory = r.memory
       localStorage.setItem(MEM_KEY, JSON.stringify(memory))
@@ -457,7 +646,7 @@
         const div = document.createElement('div'); div.className = 'warn'; div.textContent = '⚠ ' + w
         box.appendChild(div)
       }
-      toast('已生成第' + r.nextWeek + '周 ' + window.PaiBan.DAY_NAMES[r.nextDay-1])
+      toast('已生成第' + r.nextWeek + '周 ' + PaiBan.DAY_NAMES[r.nextDay-1])
     } catch(err){ toast(err.message) }
   }
 
@@ -489,6 +678,7 @@
   load()
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{})
 })()
+
 </script>
 </body>
 </html>

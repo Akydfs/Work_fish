@@ -1,5 +1,5 @@
 /* 排表助手 service worker：装好之后离线可用 */
-const CACHE = 'paiban-v2'
+const CACHE = 'paiban-v4'
 const ASSETS = [
   './',
   './index.html',
